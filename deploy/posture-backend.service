@@ -1,0 +1,15 @@
+[Unit]
+Description=Posture Thesis System Backend (FastAPI)
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/Posture-Thesis-System/backend
+EnvironmentFile=/home/pi/Posture-Thesis-System/backend/.env
+ExecStart=/home/pi/Posture-Thesis-System/backend/venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
