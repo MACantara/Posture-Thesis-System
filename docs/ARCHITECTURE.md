@@ -25,7 +25,7 @@ Posture-Thesis-System/
 │       ├── context/   # Auth context
 │       ├── hooks/     # WebSocket hook
 │       └── pages/     # Login + Dashboard pages
-└── deploy/            # systemd, nginx, deploy script
+└── deploy/            # systemd service, deploy script
 ```
 
 ## Backend Architecture
@@ -82,7 +82,7 @@ Posture-Thesis-System/
 
 ## Deployment
 
-- **systemd** service for backend
-- **nginx** reverse proxy for frontend + API + WebSocket
+- **systemd** service for backend (uvicorn on port 80)
+- uvicorn serves API, WebSocket, and built frontend static files
 - SQLite database stored locally on Pi
-- Frontend built and served as static files
+- Frontend built and served as static files via FastAPI StaticFiles
