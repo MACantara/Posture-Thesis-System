@@ -30,8 +30,7 @@ The script will:
 - Copy `.env.example` to `.env`
 - Seed the database with demo data
 - Build the frontend
-- Install and start the systemd service
-- Configure nginx as reverse proxy
+- Install and start the systemd service (uvicorn serves API + frontend on port 80)
 
 ### Manual Setup
 
@@ -65,17 +64,6 @@ sudo systemctl stop posture-backend
 
 Service file: `deploy/posture-backend.service`
 
-### nginx Configuration
-
-nginx serves the frontend and proxies API/WebSocket:
-
-```bash
-sudo nginx -t
-sudo systemctl restart nginx
-```
-
-Config file: `deploy/nginx-posture.conf`
-
 ### Access
 
 After deployment, the system is accessible at:
@@ -98,6 +86,5 @@ Change these after first login in production.
 ### Troubleshooting
 
 - **Backend not starting**: Check `sudo journalctl -u posture-backend -f`
-- **nginx errors**: Check `sudo nginx -t` and `/var/log/nginx/error.log`
 - **I2C not working**: Ensure I2C is enabled via `raspi-config`
-- **Port conflicts**: Ensure nothing else is using port 8000 or 80
+- **Port conflicts**: Ensure nothing else is using port 80
