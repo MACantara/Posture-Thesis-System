@@ -32,9 +32,12 @@ class Settings:
     PORT: int = int(os.getenv("PORT", "8000"))
     WORKERS: int = int(os.getenv("WORKERS", "1"))
 
+    # Frontend static files — path to built React dist directory
+    FRONTEND_DIST_PATH: str = os.getenv("FRONTEND_DIST_PATH", "../frontend/dist")
+
     # CORS — non-sensitive defaults
     CORS_ORIGINS: list[str] = os.getenv(
-        "CORS_ORIGINS", "http://localhost:5173,http://localhost:8000"
+        "CORS_ORIGINS", "http://localhost:5173,http://localhost:80"
     ).split(",")
 
     @property

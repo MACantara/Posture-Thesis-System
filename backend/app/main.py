@@ -1,7 +1,9 @@
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.db.factory import get_repositories
@@ -49,3 +51,12 @@ app.include_router(sessions_router.router)
 app.include_router(users_router.router)
 app.include_router(ws_router.router)
 app.include_router(sensors_router.router)
+
+# Serve built React frontend as static files (SPA fallback to index.html)
+frontend_dist = Path(settings.FRONTEND_DIST_PATH)
+if frontend_dist.exists() and frontend_dist.is_dir():
+    app.mount(
+        "/",
+        StaticFiles(directory=str(frontend_dist), html=True),
+        name="frontend",
+    )
