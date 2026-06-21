@@ -43,18 +43,9 @@ sudo systemctl daemon-reload
 sudo systemctl enable posture-backend
 sudo systemctl restart posture-backend
 
-# 7. Install nginx config
-echo "Installing nginx configuration..."
-sudo cp "$PROJECT_DIR/deploy/nginx-posture.conf" /etc/nginx/sites-available/posture
-sudo ln -sf /etc/nginx/sites-available/posture /etc/nginx/sites-enabled/posture
-sudo rm -f /etc/nginx/sites-enabled/default
-sudo nginx -t
-sudo systemctl restart nginx
-
 echo ""
 echo "=== Deployment Complete ==="
-echo "Backend: http://$(hostname -I | awk '{print $1}'):8000/api/health"
-echo "Frontend: http://$(hostname -I | awk '{print $1}')"
+echo "Backend + Frontend: http://$(hostname -I | awk '{print $1}')/api/health"
 echo ""
 echo "Default credentials:"
 echo "  User:  user / pass123"
