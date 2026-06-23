@@ -1,7 +1,8 @@
+import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
@@ -13,6 +14,9 @@ from app.routers import sessions as sessions_router
 from app.routers import users as users_router
 from app.routers import sensors as sensors_router
 from app.routers import websocket as ws_router
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -48,6 +52,19 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    client_host = request.client.host if request.client else "unknown"
+    logger.info("[REQUEST] %s %s from %s", request.method, request.url.path, client_host)
+    try:
+        response = await call_next(request)
+        logger.info("[RESPONSE] %s %s status=%d client=%s", request.method, request.url.path, response.status_code, client_host)
+        return response
+    except Exception as e:
+        logger.error("[REQUEST ERROR] %s %s client=%s error=%s", request.method, request.url.path, client_host, e)
+        raise
 
 
 @app.get("/api/health")
