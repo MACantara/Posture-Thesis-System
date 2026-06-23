@@ -81,14 +81,3 @@ async def get_sensor_status(current_user: dict = Depends(get_current_user)):
         await _read_motor_status("Servo Motor"),
         await _read_motor_status("Vibrator Module"),
     ]
-
-
-@router.get("/connection")
-async def get_bluetooth_connection(current_user: dict = Depends(get_current_user)):
-    """Check if the Bluetooth-connected sensor is reachable."""
-    try:
-        sens = get_sensor_instance()
-        await sens.read_temperature()
-        return {"connected": True, "name": "MPU6050 Sensor", "type": "BLE 5.0"}
-    except Exception:
-        return {"connected": False, "name": "MPU6050 Sensor", "type": "BLE 5.0"}
