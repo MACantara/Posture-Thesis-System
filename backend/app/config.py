@@ -35,7 +35,7 @@ class Settings:
 
     # CORS — non-sensitive defaults
     CORS_ORIGINS: list[str] = os.getenv(
-        "CORS_ORIGINS", "http://localhost:5173,http://localhost:80"
+        "CORS_ORIGINS", "*"
     ).split(",")
 
     @property
