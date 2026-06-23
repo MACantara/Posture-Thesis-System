@@ -19,8 +19,14 @@ export default function UserLogin() {
     try {
       await login(username, password);
       navigate('/dashboard');
-    } catch {
-      setError('Invalid username or password');
+    } catch (err: any) {
+      if (err?.code === 'ERR_NETWORK' || err?.message?.includes('Network Error')) {
+        setError('Cannot reach server. Check that the backend is running and accessible on the network.');
+      } else if (err?.response?.status === 401) {
+        setError('Invalid username or password');
+      } else {
+        setError(err?.response?.data?.detail || err?.message || 'Login failed');
+      }
     } finally {
       setLoading(false);
     }
