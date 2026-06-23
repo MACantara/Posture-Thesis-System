@@ -63,6 +63,7 @@ export async function getNetworkDevices(): Promise<NetworkScanResult> {
 export interface FlexSensorData {
   online: boolean;
   name: string;
+  adc_type?: string;
   raw_adc: number;
   voltage: number;
   resistance: number;

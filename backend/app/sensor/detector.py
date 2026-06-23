@@ -56,6 +56,62 @@ def _scan_i2c_bus(bus_num: int) -> list[dict]:
     return devices
 
 
+def _check_spi_devices() -> list[dict]:
+    """Check for SPI-connected ADC devices (MCP3008)."""
+    devices = []
+    try:
+        import spidev
+        for bus in range(2):
+            for dev in range(2):
+                try:
+                    spi = spidev.SpiDev()
+                    spi.open(bus, dev)
+                    # Try reading channel 0 — if it responds, MCP3008 is present
+                    r = spi.xfer2([1, 0x80, 0])
+                    val = ((r[1] & 3) << 8) + r[2]
+                    devices.append({
+                        "name": "MCP3008 SPI ADC",
+                        "bus": bus,
+                        "device": dev,
+                        "interface": "SPI",
+                        "channels": 8,
+                    })
+                    logger.info("MCP3008 detected on SPI bus %d device %d (ch0=%d)", bus, dev, val)
+                    spi.close()
+                    return devices  # Found one, no need to check more
+                except Exception:
+                    pass
+    except ImportError:
+        logger.debug("spidev not available — cannot scan SPI bus")
+    except Exception as e:
+        logger.debug("SPI scan failed: %s", e)
+    return devices
+
+
+def _detect_flex_sensor() -> dict | None:
+    """Try to detect a flex sensor by initializing FlexSensor with auto-detection.
+
+    The flex sensor is analog, so it won't appear on I2C/SPI bus scans directly.
+    Instead, we check if any ADC (MCP3008, ADS1115, or GPIO RC) is available
+    and can read data.
+    """
+    try:
+        from app.sensor.flex_sensor import FlexSensor
+        flex = FlexSensor(bus_num=settings.I2C_BUS)
+        raw = flex._read_raw()
+        adc_type = flex.adc_type
+        return {
+            "name": "Flex Sensor 4.5\" (SEN-08606)",
+            "online": True,
+            "interface": "Analog",
+            "adc_type": adc_type,
+            "raw_value": raw,
+        }
+    except Exception as e:
+        logger.debug("Flex sensor not detected: %s", e)
+        return None
+
+
 def _check_gpio_pins() -> list[dict]:
     """Check if configured GPIO pins are available for motors."""
     try:
@@ -240,23 +296,27 @@ async def _scan_network_devices() -> list[dict]:
 async def detect_all_hardware() -> dict:
     """Detect all connected hardware on the Raspberry Pi.
 
-    Returns a dict with 'i2c', 'gpio', 'ble', and 'network' lists.
+    Returns a dict with 'i2c', 'spi', 'gpio', 'ble', 'flex', and 'network' lists.
     """
     i2c = await asyncio.to_thread(_scan_i2c_bus, settings.I2C_BUS)
+    spi = await asyncio.to_thread(_check_spi_devices)
     gpio = await asyncio.to_thread(_check_gpio_pins)
     ble = await asyncio.to_thread(_scan_ble_devices)
+    flex = await asyncio.to_thread(_detect_flex_sensor)
     network = await _scan_network_devices()
 
     return {
         "i2c": i2c,
+        "spi": spi,
         "gpio": gpio,
         "ble": ble,
+        "flex": flex,
         "network": network,
     }
 
 
 async def detect_sensors() -> list[dict]:
-    """Detect all connected sensors (I2C + BLE)."""
+    """Detect all connected sensors (I2C + SPI + BLE + Flex)."""
     hardware = await detect_all_hardware()
     sensors = []
     for dev in hardware["i2c"]:
@@ -267,12 +327,27 @@ async def detect_sensors() -> list[dict]:
             "address": dev.get("address"),
             "bus": dev.get("bus"),
         })
+    for dev in hardware["spi"]:
+        sensors.append({
+            "name": dev["name"],
+            "online": True,
+            "interface": dev["interface"],
+            "bus": dev.get("bus"),
+            "device": dev.get("device"),
+        })
     for dev in hardware["ble"]:
         sensors.append({
             "name": dev["name"],
             "online": True,
             "interface": dev["interface"],
             "address": dev.get("address"),
+        })
+    if hardware.get("flex"):
+        sensors.append({
+            "name": hardware["flex"]["name"],
+            "online": True,
+            "interface": hardware["flex"]["interface"],
+            "adc_type": hardware["flex"].get("adc_type"),
         })
     return sensors
 
@@ -315,12 +390,11 @@ async def read_detected_sensor_status() -> list[dict]:
                 logger.warning("Failed to read %s: %s", dev["name"], e)
                 status["online"] = False
 
-        if dev["interface"] == "I2C" and "ADS1115" in dev["name"]:
+        if "Flex Sensor" in dev["name"]:
             try:
-                addr = int(dev["address"], 16) if dev["address"] else 0x48
                 from app.sensor.flex_sensor import FlexSensor
                 t0 = asyncio.get_event_loop().time()
-                flex = FlexSensor(bus_num=settings.I2C_BUS, address=addr)
+                flex = FlexSensor(bus_num=settings.I2C_BUS)
                 raw_data = await flex.read_raw_data()
                 ping_ms = round((asyncio.get_event_loop().time() - t0) * 1000, 1)
                 status["name"] = "Flex Sensor 4.5\" (SEN-08606)"
@@ -330,6 +404,7 @@ async def read_detected_sensor_status() -> list[dict]:
                 status["bend_angle"] = raw_data["bend_angle"]
                 status["resistance"] = raw_data["resistance"]
                 status["voltage"] = raw_data["voltage"]
+                status["adc_type"] = flex.adc_type
             except Exception as e:
                 logger.warning("Failed to read %s: %s", dev["name"], e)
                 status["online"] = False

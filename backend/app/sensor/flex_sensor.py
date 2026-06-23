@@ -1,22 +1,34 @@
-"""Flex Sensor 4.5" (SparkFun SEN-08606) driver for Raspberry Pi.
+"""Flex Sensor 4.5" (SparkFun SEN-08606) driver for Raspberry Pi 3 B+.
 
-The flex sensor is an analog resistance sensor — resistance increases
-as it bends. It requires an ADC to read on the Pi (which lacks analog inputs).
+The flex sensor is an analog variable resistor — resistance increases
+as it bends. The Pi 3 B+ has no analog inputs, so an ADC is required.
 
-Default setup: ADS1115 ADC on I2C address 0x48, flex sensor on channel A0
-via voltage divider circuit.
+Supports three ADC types (auto-detected in priority order):
+  1. MCP3008 — SPI ADC, 10-bit, 8 channels (most common with Pi)
+  2. ADS1115 — I2C ADC, 16-bit, 4 channels (address 0x48)
+  3. GPIO RC circuit — no ADC, uses capacitor charge timing on a GPIO pin
 
-Voltage divider:
-  VCC --- [Flex Sensor] ---+--- [10k resistor] --- GND
-                            |
-                          ADC input (A0)
+Voltage divider circuit (per SparkFun hookup guide):
+  3.3V --- [Flex Sensor] ---+--- [47kΩ resistor] --- GND
+                             |
+                           ADC input (CH0)
 
-As the sensor bends, resistance increases, voltage at the divider
-midpoint changes, and the ADC reads the difference.
+As the sensor bends, resistance increases (30kΩ flat → 70kΩ at 90°),
+voltage at the divider midpoint decreases, and the ADC reads lower values.
+
+Datasheet values (SpectraSymbol FS7548):
+  Flat resistance: ~10kΩ (datasheet) / ~30kΩ (observed, 4.5" sensor)
+  Bend resistance: 60k-110kΩ (datasheet) / ~70kΩ at 90° (observed)
+  Resistance tolerance: ±30%
+  Power rating: 0.50W continuous, 1W peak
+  Temperature range: -35°C to +80°C
+  Life cycle: >1 million
 """
 
 import logging
 import time
+
+from app.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -25,55 +37,85 @@ try:
     HAS_SMBUS = True
 except ImportError:
     HAS_SMBUS = False
-    logger.warning("smbus2 not installed — FlexSensor hardware unavailable")
+
+try:
+    import spidev
+    HAS_SPI = True
+except ImportError:
+    HAS_SPI = False
+
+try:
+    import RPi.GPIO as GPIO
+    HAS_GPIO = True
+except ImportError:
+    HAS_GPIO = False
 
 
 class FlexSensor:
-    """SparkFun Flex Sensor 4.5" via ADS1115 ADC.
+    """SparkFun Flex Sensor 4.5" (SEN-08606) via ADC.
 
-    Reads analog voltage from the flex sensor through an ADS1115 ADC
-    and converts it to a bend angle.
+    Auto-detects and uses the first available ADC:
+      1. MCP3008 (SPI, 10-bit, 0-1023)
+      2. ADS1115 (I2C, 16-bit, signed)
+      3. GPIO RC circuit (no ADC, timing-based)
+
+    Voltage divider (per hookup guide):
+      3.3V --- [Flex Sensor] ---+--- [47kΩ resistor] --- GND
+                                 |
+                               ADC input
+    As flex resistance increases (bending), voltage at ADC decreases.
     """
 
     # ADS1115 registers
     ADS1115_REG_POINTER = 0x00
     ADS1115_REG_CONFIG = 0x01
+    ADS1115_CONFIG_BASE = 0xC103  # single-shot, PGA=4.096V, 128 SPS
 
-    # ADS1115 config: single-shot, A0, gain 4.096V, 128 SPS
-    # Config bits: OS=1, MUX=100 (A0), PGA=010 (4.096V), MODE=1 (single-shot),
-    #              DR=100 (128 SPS), COMP modes=0
-    ADS1115_CONFIG_SINGLE_SHOT_A0 = 0xC103
-    ADS1115_CONFIG_SINGLE_SHOT_A1 = 0xD103
-    ADS1115_CONFIG_SINGLE_SHOT_A2 = 0xE103
-    ADS1115_CONFIG_SINGLE_SHOT_A3 = 0xF103
-
-    # Voltage divider parameters
+    # Voltage divider parameters (per SparkFun hookup guide)
     VCC = 3.3
-    DIVIDER_R = 10000.0  # 10k ohm fixed resistor
+    DIVIDER_R = 47000.0  # 47kΩ recommended in hookup guide
 
-    # Flex sensor resistance range (approximate, from datasheet)
-    FLEX_FLAT_R = 25000.0    # ~25k ohm when flat
-    FLEX_BENT_R = 100000.0   # ~100k ohm when fully bent
+    # Flex sensor resistance range (from datasheet + hookup guide)
+    FLEX_FLAT_R = 30000.0   # ~30kΩ when flat (hookup guide)
+    FLEX_BENT_R = 70000.0   # ~70kΩ at 90° bend (hookup guide)
+
+    # ADC type identifiers
+    ADC_MCP3008 = "mcp3008"
+    ADC_ADS1115 = "ads1115"
+    ADC_GPIO_RC = "gpio_rc"
 
     def __init__(
         self,
         bus_num: int = 1,
         address: int = 0x48,
         channel: int = 0,
+        adc_type: str | None = None,
+        spi_bus: int = 0,
+        spi_device: int = 0,
+        gpio_pin: int = 4,
         flat_calibration: float | None = None,
         bent_calibration: float | None = None,
     ):
-        if not HAS_SMBUS:
-            raise RuntimeError("smbus2 not available — cannot initialize FlexSensor")
-
-        self.bus = smbus2.SMBus(bus_num)
-        self.address = address
         self.channel = channel
         self._baseline_angle = 0.0
-
-        # Calibration values (raw ADC readings at flat and bent positions)
         self._flat_cal = flat_calibration
         self._bent_cal = bent_calibration
+        self.adc_type = None
+        self.bus = None
+        self.spi = None
+        self.gpio_pin = gpio_pin
+
+        # Auto-detect ADC if not specified
+        if adc_type:
+            self._init_adc(adc_type, bus_num, address, spi_bus, spi_device)
+        else:
+            self._auto_detect_adc(bus_num, address, spi_bus, spi_device)
+
+        if self.adc_type is None:
+            raise RuntimeError(
+                "No ADC available for FlexSensor. Ensure MCP3008 (SPI), "
+                "ADS1115 (I2C 0x48), or GPIO RC circuit is connected."
+            )
 
         # Auto-calibrate flat position on init if no calibration provided
         if self._flat_cal is None:
@@ -84,49 +126,151 @@ class FlexSensor:
                 self._flat_cal = 0
 
         if self._bent_cal is None:
-            # Estimate bent calibration from voltage divider math
-            self._bent_cal = self._flat_cal + 12000  # approximate range
+            # Estimate bent calibration based on ADC type
+            if self.adc_type == self.ADC_MCP3008:
+                # 10-bit: flat ~ high value, bent ~ lower value
+                flat_voltage = self.VCC * self.DIVIDER_R / (self.FLEX_FLAT_R + self.DIVIDER_R)
+                bent_voltage = self.VCC * self.DIVIDER_R / (self.FLEX_BENT_R + self.DIVIDER_R)
+                self._bent_cal = int(bent_voltage / self.VCC * 1023)
+            elif self.adc_type == self.ADC_ADS1115:
+                flat_voltage = self.VCC * self.DIVIDER_R / (self.FLEX_FLAT_R + self.DIVIDER_R)
+                bent_voltage = self.VCC * self.DIVIDER_R / (self.FLEX_BENT_R + self.DIVIDER_R)
+                self._bent_cal = int(bent_voltage / 4.096 * 32767)
+            else:
+                self._bent_cal = self._flat_cal * 2  # rough estimate for RC
 
         logger.info(
-            "FlexSensor initialized: addr=0x%02X channel=%d flat_cal=%d bent_cal=%d",
-            address, channel, self._flat_cal, self._bent_cal,
+            "FlexSensor initialized: adc=%s channel=%d flat_cal=%d bent_cal=%d",
+            self.adc_type, self.channel, self._flat_cal, self._bent_cal,
         )
 
-    def _read_raw(self) -> int:
-        """Read raw ADC value from the configured channel."""
-        config_map = {
-            0: self.ADS1115_CONFIG_SINGLE_SHOT_A0,
-            1: self.ADS1115_CONFIG_SINGLE_SHOT_A1,
-            2: self.ADS1115_CONFIG_SINGLE_SHOT_A2,
-            3: self.ADS1115_CONFIG_SINGLE_SHOT_A3,
-        }
-        config = config_map.get(self.channel, self.ADS1115_CONFIG_SINGLE_SHOT_A0)
+    def _auto_detect_adc(self, bus_num: int, address: int, spi_bus: int, spi_device: int):
+        """Try each ADC type in priority order."""
+        # Try MCP3008 (SPI) first — most common with Pi
+        if HAS_SPI:
+            try:
+                self._init_mcp3008(spi_bus, spi_device)
+                return
+            except Exception as e:
+                logger.debug("MCP3008 not available: %s", e)
 
-        # Write config to start conversion
+        # Try ADS1115 (I2C)
+        if HAS_SMBUS:
+            try:
+                self._init_ads1115(bus_num, address)
+                return
+            except Exception as e:
+                logger.debug("ADS1115 not available: %s", e)
+
+        # Try GPIO RC circuit (no ADC needed)
+        if HAS_GPIO:
+            try:
+                self._init_gpio_rc()
+                return
+            except Exception as e:
+                logger.debug("GPIO RC not available: %s", e)
+
+    def _init_adc(self, adc_type: str, bus_num: int, address: int, spi_bus: int, spi_device: int):
+        if adc_type == self.ADC_MCP3008:
+            self._init_mcp3008(spi_bus, spi_device)
+        elif adc_type == self.ADC_ADS1115:
+            self._init_ads1115(bus_num, address)
+        elif adc_type == self.ADC_GPIO_RC:
+            self._init_gpio_rc()
+        else:
+            raise RuntimeError(f"Unknown ADC type: {adc_type}")
+
+    def _init_mcp3008(self, spi_bus: int, spi_device: int):
+        """Initialize MCP3008 SPI ADC."""
+        self.spi = spidev.SpiDev()
+        self.spi.open(spi_bus, spi_device)
+        self.spi.max_speed_hz = 1350000
+        self.spi.mode = 0
+        self.adc_type = self.ADC_MCP3008
+        logger.info("MCP3008 SPI ADC initialized: bus=%d device=%d", spi_bus, spi_device)
+
+    def _init_ads1115(self, bus_num: int, address: int):
+        """Initialize ADS1115 I2C ADC."""
+        self.bus = smbus2.SMBus(bus_num)
+        self.address = address
+        # Verify device responds
+        self.bus.read_byte(address)
+        self.adc_type = self.ADC_ADS1115
+        logger.info("ADS1115 I2C ADC initialized: bus=%d addr=0x%02X", bus_num, address)
+
+    def _init_gpio_rc(self):
+        """Initialize GPIO for RC timing circuit (no ADC needed).
+
+        RC circuit:
+          GPIO pin --- [Flex Sensor] --- 0.1µF cap --- GND
+        Measure time to charge capacitor through flex sensor resistance.
+        """
+        GPIO.setmode(GPIO.BCM)
+        self.adc_type = self.ADC_GPIO_RC
+        logger.info("GPIO RC circuit initialized on pin %d", self.gpio_pin)
+
+    def _read_mcp3008(self, channel: int) -> int:
+        """Read from MCP3008 SPI ADC (10-bit, 0-1023)."""
+        if channel < 0 or channel > 7:
+            raise ValueError("MCP3008 channel must be 0-7")
+        # MCP3008 command: start bit, single-ended mode, channel
+        r = self.spi.xfer2([1, (8 + channel) << 4, 0])
+        return ((r[1] & 3) << 8) + r[2]
+
+    def _read_ads1115(self, channel: int) -> int:
+        """Read from ADS1115 I2C ADC (16-bit signed)."""
+        config = self.ADS1115_CONFIG_BASE | (channel << 12)
         self.bus.write_i2c_block_data(
             self.address,
             self.ADS1115_REG_CONFIG,
             [(config >> 8) & 0xFF, config & 0xFF],
         )
-
-        # Wait for conversion (128 SPS ~ 8ms)
         time.sleep(0.01)
-
-        # Read conversion result
         data = self.bus.read_i2c_block_data(self.address, self.ADS1115_REG_POINTER, 2)
         raw = (data[0] << 8) | data[1]
-
-        # Convert to signed 16-bit
         if raw >= 0x8000:
             raw -= 0x10000
-
         return raw
+
+    def _read_gpio_rc(self) -> int:
+        """Read via GPIO RC timing circuit.
+
+        Measures capacitor charge time through flex sensor resistance.
+        Higher resistance = longer charge time = more bend.
+        Returns a timing count proportional to resistance.
+        """
+        GPIO.setup(self.gpio_pin, GPIO.OUT)
+        GPIO.output(self.gpio_pin, GPIO.LOW)
+        time.sleep(0.01)
+        GPIO.setup(self.gpio_pin, GPIO.IN)
+        count = 0
+        while GPIO.input(self.gpio_pin) == GPIO.LOW:
+            count += 1
+            if count > 100000:
+                break
+        return count
+
+    def _read_raw(self) -> int:
+        """Read raw ADC value from the configured channel."""
+        if self.adc_type == self.ADC_MCP3008:
+            return self._read_mcp3008(self.channel)
+        elif self.adc_type == self.ADC_ADS1115:
+            return self._read_ads1115(self.channel)
+        elif self.adc_type == self.ADC_GPIO_RC:
+            return self._read_gpio_rc()
+        else:
+            raise RuntimeError("No ADC initialized")
 
     def read_voltage(self) -> float:
         """Read the voltage at the flex sensor divider midpoint."""
         raw = self._read_raw()
-        # ADS1115 with PGA=4.096V: 16-bit signed, full scale = 4.096V
-        voltage = raw * 4.096 / 32767.0
+        if self.adc_type == self.ADC_MCP3008:
+            voltage = raw * self.VCC / 1023.0
+        elif self.adc_type == self.ADC_ADS1115:
+            voltage = raw * 4.096 / 32767.0
+        else:
+            # GPIO RC: no direct voltage, estimate from timing
+            voltage = min(raw / 10000.0 * self.VCC, self.VCC)
         return round(voltage, 4)
 
     def read_resistance(self) -> float:

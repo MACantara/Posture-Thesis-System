@@ -111,7 +111,7 @@ export default function FlexSensorPanel() {
       </div>
 
       <div className="mt-4 text-xs text-slate-500">
-        SparkFun SEN-08606 via ADS1115 ADC · Updates every 2s
+        SparkFun SEN-08606{data.adc_type ? ` via ${data.adc_type.toUpperCase()}` : ''} · Updates every 2s
       </div>
     </div>
   );

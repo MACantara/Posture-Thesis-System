@@ -160,14 +160,16 @@ async def get_network_devices(current_user: dict = Depends(get_current_user)):
 
 @router.get("/flex")
 async def get_flex_sensor_data(current_user: dict = Depends(get_current_user)):
-    """Read raw data from the Flex Sensor 4.5\" via ADS1115 ADC."""
+    """Read raw data from the Flex Sensor 4.5\" via auto-detected ADC."""
     try:
         from app.sensor.flex_sensor import FlexSensor
-        flex = FlexSensor(bus_num=__import__('app.config', fromlist=['settings']).settings.I2C_BUS)
+        from app.config import settings as cfg
+        flex = FlexSensor(bus_num=cfg.I2C_BUS)
         data = await flex.read_raw_data()
         return {
             "online": True,
             "name": "Flex Sensor 4.5\" (SEN-08606)",
+            "adc_type": flex.adc_type,
             **data,
         }
     except Exception as e:
