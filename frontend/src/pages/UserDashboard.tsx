@@ -12,6 +12,7 @@ import PostureRecordsTable from '../components/dashboard/PostureRecordsTable';
 import Recommendations from '../components/dashboard/Recommendations';
 import SensorCards from '../components/dashboard/SensorCards';
 import WirelessPanel from '../components/dashboard/WirelessPanel';
+import BluetoothStatus from '../components/dashboard/BluetoothStatus';
 import PostureSilhouette from '../components/dashboard/PostureSilhouette';
 import JointAngleBars from '../components/dashboard/JointAngleBars';
 import SessionStats from '../components/dashboard/SessionStats';
@@ -64,6 +65,7 @@ export default function UserDashboard() {
           <h1 className="text-2xl font-bold text-white">Posture Dashboard</h1>
         </div>
         <div className="flex items-center gap-4">
+          <BluetoothStatus />
           <div className="flex items-center gap-2 text-slate-300">
             <User className="w-5 h-5" />
             <span>{user?.username}</span>
