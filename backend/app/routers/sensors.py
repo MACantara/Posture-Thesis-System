@@ -1,3 +1,5 @@
+import asyncio
+import re
 import time
 
 from fastapi import APIRouter, Depends
@@ -23,6 +25,69 @@ def get_motor_instance():
     if motor is None:
         motor = get_motor()
     return motor
+
+
+async def _read_bluetooth_adapter() -> dict:
+    """Check the Raspberry Pi's built-in Bluetooth 4.2/BLE adapter (hci0)."""
+    def _check_hci0() -> dict:
+        import subprocess
+
+        try:
+            result = subprocess.run(
+                ["hciconfig", "hci0"],
+                capture_output=True, text=True, timeout=5,
+            )
+            output = result.stdout
+
+            if not output:
+                return {
+                    "name": "Built-in Bluetooth 4.2/BLE",
+                    "online": False,
+                    "address": None,
+                    "up": False,
+                    "connected_devices": 0,
+                }
+
+            online = "UP" in output
+            address_match = re.search(r"BD Address:\s*([0-9A-Fa-f:]{17})", output)
+            address = address_match.group(1) if address_match else None
+
+            connected = 0
+            try:
+                bt_result = subprocess.run(
+                    ["btconn", "-l"],
+                    capture_output=True, text=True, timeout=5,
+                )
+                if bt_result.returncode == 0 and bt_result.stdout.strip():
+                    connected = len([l for l in bt_result.stdout.strip().split("\n") if l.strip()])
+            except Exception:
+                pass
+
+            return {
+                "name": "Built-in Bluetooth 4.2/BLE",
+                "online": online,
+                "address": address,
+                "up": online,
+                "connected_devices": connected,
+            }
+        except FileNotFoundError:
+            return {
+                "name": "Built-in Bluetooth 4.2/BLE",
+                "online": False,
+                "address": None,
+                "up": False,
+                "connected_devices": 0,
+            }
+        except Exception:
+            return {
+                "name": "Built-in Bluetooth 4.2/BLE",
+                "online": False,
+                "address": None,
+                "up": False,
+                "connected_devices": 0,
+            }
+
+    return await asyncio.to_thread(_check_hci0)
 
 
 async def _read_sensor_status() -> dict:
@@ -81,3 +146,8 @@ async def get_sensor_status(current_user: dict = Depends(get_current_user)):
         await _read_motor_status("Servo Motor"),
         await _read_motor_status("Vibrator Module"),
     ]
+
+
+@router.get("/bluetooth")
+async def get_bluetooth_status(current_user: dict = Depends(get_current_user)):
+    return await _read_bluetooth_adapter()
