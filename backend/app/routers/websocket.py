@@ -76,11 +76,6 @@ async def websocket_endpoint(websocket: WebSocket):
                     if hasattr(sens, "recalibrate"):
                         sens.recalibrate()
                     await manager.send_json(websocket, {"type": "recalibrated"})
-                elif cmd_type == "set_demo_state":
-                    state = command.get("state", "good")
-                    if hasattr(sens, "set_demo_state"):
-                        sens.set_demo_state(state)
-                    await manager.send_json(websocket, {"type": "demo_state_set", "state": state})
 
             except asyncio.TimeoutError:
                 pass

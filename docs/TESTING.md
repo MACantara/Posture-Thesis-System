@@ -29,10 +29,10 @@ python -m pytest --cov=app --cov-report=term-missing
 | test_posture.py | 6 | Records CRUD, filtering, stats |
 | test_sessions.py | 3 | Session start/end, listing |
 | test_users.py | 6 | Admin user management, RBAC |
-| test_sensors.py | 2 | Sensor status endpoint |
+| test_sensors.py | 1 | Sensor status auth check |
 | test_seed.py | 2 | Seed data creation |
-| test_sensor.py | 9 | Mock sensor, motor, posture detector |
-| test_websocket.py | 5 | WebSocket auth, data streaming, commands |
+| test_sensor.py | 2 | Posture detector classification and intensity |
+| test_websocket.py | 2 | WebSocket auth rejection |
 
 ### Test Fixtures (conftest.py)
 

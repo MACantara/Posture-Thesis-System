@@ -262,25 +262,23 @@ CREATE TABLE sessions (
 #### Current Status
 
 - Hardware (sensors, motors, vest) is **not yet available**
-- Web app and backend are being developed first using **mock/simulated sensor data**
+- Web app and backend are being developed with the sensor abstraction layer ready for hardware integration
 - Sensor abstraction layer is designed so real hardware can be plugged in with minimal code changes
 
 #### Sensor Abstraction Layer Design
 
-The system uses an **interface-based approach** so mock and real implementations are interchangeable:
+The system uses an **interface-based approach** so hardware implementations are interchangeable:
 
 ```
 sensor/
   ├── interfaces.py      # Abstract base classes (SensorInterface, MotorInterface)
-  ├── mpu6050.py         # Real MPU6050 implementation (uses smbus2)
-  ├── mock_sensor.py     # Mock implementation for development (generates realistic fake data)
-  ├── servo.py           # Real servo motor control (uses RPi.GPIO)
-  ├── mock_motor.py      # Mock motor implementation (logs actions instead of actuating)
-  └── factory.py         # Factory that returns mock or real implementations based on config
+  ├── mpu6050.py         # MPU6050 implementation (uses smbus2)
+  ├── servo.py           # Servo motor control (uses RPi.GPIO)
+  └── factory.py         # Factory that returns hardware implementations
 ```
 
-- `factory.py` reads a config flag (e.g. `USE_MOCK_SENSORS = True/False`) to switch between mock and real implementations
-- When hardware arrives, only `mpu6050.py` and `servo.py` need real implementations — the rest of the app stays unchanged
+- `factory.py` returns hardware sensor and motor instances
+- When hardware is connected, `mpu6050.py` and `servo.py` read real data — the rest of the app stays unchanged
 
 #### MPU6050 Sensor — Raw Data Reading
 
@@ -313,22 +311,20 @@ class MotorInterface:
 
 - **Control**: PWM via `RPi.GPIO` (GPIO pin configurable in config)
 - **Behavior**: adjusts servo angle based on detected posture deviation
-- **Mock mode**: logs the intended correction angle instead of actuating
 
 #### Vibrator Motor — Alert Feedback Control
 
 - **Control**: GPIO digital output (on/off) or PWM for intensity
 - **Behavior**: triggers haptic pulse when poor posture detected for sustained period
-- **Mock mode**: logs alert events with timestamp and intensity
 
-#### Mock Sensor Data Generation (Development Without Hardware)
+#### Sensor Data Reading
 
-- Generates realistic accelerometer and gyroscope values simulating:
+- Reads actual accelerometer and gyroscope values from the MPU6050:
   - Good posture (small deviations from neutral)
   - Poor posture (larger deviations, slouching patterns)
   - Transitions between postures over time
-- Mock data follows the same `SensorInterface` — app code is identical in mock and real mode
-- Useful for testing UI, WebSocket streaming, database logging, and posture detection algorithms
+- Data follows the `SensorInterface` — app code is identical across deployments
+- Real-time data streamed via WebSocket for live posture monitoring
 
 #### Integration Checklist (When Hardware Arrives)
 
@@ -337,7 +333,7 @@ class MotorInterface:
 3. Verify I2C detection: `i2cdetect -y 1` (should show `0x68`)
 4. Connect servo motor to designated GPIO pin
 5. Connect vibrator motor to designated GPIO pin
-6. Set `USE_MOCK_SENSORS = False` in config
+6. Install hardware drivers: `pip install smbus2 RPi.GPIO`
 7. Calibrate MPU6050 offsets (run calibration script, save to config)
 8. Test real-time sensor reading via WebSocket
 9. Tune posture detection thresholds with real data

@@ -3,7 +3,6 @@ import time
 from fastapi import APIRouter, Depends
 
 from app.auth.dependencies import get_current_user
-from app.config import settings
 from app.sensor.factory import get_sensor, get_motor
 
 router = APIRouter(prefix="/api/sensors", tags=["sensors"])
@@ -36,8 +35,8 @@ async def _read_sensor_status() -> dict:
         return {
             "name": "MPU6050 Sensor",
             "online": True,
-            "battery": 100 if settings.USE_MOCK_SENSORS else 0,
-            "signal": 100 if settings.USE_MOCK_SENSORS else 0,
+            "battery": 0,
+            "signal": 0,
             "temperature": temp,
             "ping": ping_ms,
         }
@@ -56,12 +55,11 @@ async def _read_motor_status(name: str) -> dict:
     """Read actual status from the motor instance."""
     mot = get_motor_instance()
     try:
-        is_mock = settings.USE_MOCK_SENSORS
         return {
             "name": name,
             "online": True,
-            "battery": 100 if is_mock else 0,
-            "signal": 100 if is_mock else 0,
+            "battery": 0,
+            "signal": 0,
             "temperature": 0,
             "ping": 0,
         }

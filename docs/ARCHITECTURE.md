@@ -14,7 +14,7 @@ Posture-Thesis-System/
 │   │   ├── models/    # Pydantic schemas
 │   │   ├── routers/   # API endpoints + WebSocket
 │   │   ├── seed/      # Demo data seeding
-│   │   ├── sensor/    # Mock + hardware sensor implementations
+│   │   ├── sensor/    # Hardware sensor implementations
 │   │   └── main.py    # FastAPI app entry point
 │   ├── tests/         # pytest test suite
 │   └── run.py         # Uvicorn launcher
@@ -46,9 +46,8 @@ Posture-Thesis-System/
 
 ### Sensor System
 
-- **Mock sensors** (`sensor/mock_sensor.py`, `mock_motor.py`): Simulated MPU6050 + servo for development
 - **Hardware sensors** (`sensor/mpu6050.py`, `servo.py`): Real I2C/GPIO implementations
-- **Factory** (`sensor/factory.py`): Returns mock or hardware based on `USE_MOCK_SENSORS`
+- **Factory** (`sensor/factory.py`): Returns hardware sensor and motor instances
 - **Posture detection** (`sensor/posture_detector.py`): Classifies angle into good/warning/poor
 - **WebSocket** (`routers/websocket.py`): Real-time sensor data streaming with JWT auth
 

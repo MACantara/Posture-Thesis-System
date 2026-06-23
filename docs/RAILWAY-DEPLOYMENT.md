@@ -50,7 +50,6 @@ Navigate to the backend service → Variables tab and add:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `USE_MOCK_SENSORS` | `True` | Set to `False` if deploying with actual hardware sensors |
 | `HOST` | `0.0.0.0` | Server host (keep default for Railway) |
 | `PORT` | `8000` | Server port (Railway sets `$PORT` automatically) |
 | `WORKERS` | `1` | Number of uvicorn workers |

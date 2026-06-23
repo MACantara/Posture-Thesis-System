@@ -38,28 +38,21 @@ sudo raspi-config
 pip install smbus2 RPi.GPIO
 ```
 
-### 3. Switch from mock to hardware
-Edit `.env`:
-```
-USE_MOCK_SENSORS=False
-```
-
-### 4. Calibrate the sensor
+### 3. Calibrate the sensor
 ```bash
 cd backend
 python -m app.sensor.calibration
 ```
 Follow the prompts, then save the output offsets to your `.env` file.
 
-## Plug-and-Play Architecture
+## Hardware Requirements
 
-The sensor factory (`app/sensor/factory.py`) automatically detects hardware availability:
+The sensor factory (`app/sensor/factory.py`) requires hardware drivers (`smbus2`, `RPi.GPIO`):
 
-- If `USE_MOCK_SENSORS=True` → uses mock sensors
-- If `USE_MOCK_SENSORS=False` → tries to import hardware drivers
-- If hardware drivers unavailable → falls back to mock with a warning
+- On Raspberry Pi with I2C enabled and drivers installed → sensors work directly
+- Without hardware drivers → `RuntimeError` is raised at startup
 
-This allows seamless development on any machine and deployment on Pi without code changes.
+Ensure `smbus2` and `RPi.GPIO` are installed and I2C is enabled before starting the app.
 
 ## Calibration
 

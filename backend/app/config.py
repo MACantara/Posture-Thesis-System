@@ -13,9 +13,6 @@ class Settings:
     DATABASE_PATH: str = os.getenv("DATABASE_PATH", "posture.db")
     DATABASE_URL: str = os.getenv("DATABASE_URL", "")
 
-    # Sensors — non-sensitive defaults
-    USE_MOCK_SENSORS: bool = os.getenv("USE_MOCK_SENSORS", "True").lower() == "true"
-
     # Hardware Config — non-sensitive pin/bus defaults
     I2C_BUS: int = int(os.getenv("I2C_BUS", "1"))
     MPU6050_ADDRESS: int = int(os.getenv("MPU6050_ADDRESS", "0x68"), 16)

@@ -9,7 +9,6 @@ from httpx import AsyncClient, ASGITransport
 
 # Set test environment variables before importing app
 os.environ["SECRET_KEY"] = "test-secret-key"
-os.environ["USE_MOCK_SENSORS"] = "True"
 os.environ["DB_BACKEND"] = "sqlite"
 
 from app.db.sqlite.connection import init_db, get_connection

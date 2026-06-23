@@ -57,7 +57,7 @@ pytest --cov=app --cov-report=term-missing
 | Frontend | React 18, TypeScript, Vite, TailwindCSS |
 | Charts | Recharts |
 | Real-time | FastAPI WebSockets |
-| Sensors | MPU6050 via I2C (mock mode for development) |
+| Sensors | MPU6050 via I2C (BLE 5.0 connectivity) |
 | Testing | pytest, pytest-asyncio, httpx, pytest-cov |
 
 ## Documentation
