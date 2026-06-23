@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-PROJECT_DIR="/home/pi/Posture-Thesis-System"
+PROJECT_DIR="/home/admin/Posture-Thesis-System"
 BACKEND_DIR="$PROJECT_DIR/backend"
 FRONTEND_DIR="$PROJECT_DIR/frontend"
 VENV_DIR="$BACKEND_DIR/venv"
