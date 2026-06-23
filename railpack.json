@@ -19,9 +19,11 @@
       ]
     },
     "frontend-build": {
-      "inputs": [{ "step": "frontend-install" }],
+      "inputs": [
+        { "step": "frontend-install" },
+        { "local": true, "include": ["frontend"], "exclude": ["frontend/node_modules"] }
+      ],
       "commands": [
-        { "src": "frontend", "dest": "frontend" },
         "cd frontend && npm run build"
       ]
     }
