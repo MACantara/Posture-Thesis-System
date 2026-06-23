@@ -26,6 +26,7 @@ uvicorn app.main:app --reload --port 8000  # DB tables created and demo data see
 
 ```bash
 cd frontend
+cp .env.example .env  # Configure backend API URL
 npm install
 npm run dev
 ```
