@@ -126,7 +126,7 @@ export default function UserDashboard() {
           {activeTab === 'connectivity' && (
             <div className="space-y-6">
               <SensorCards sensors={sensors} />
-              <WirelessPanel />
+              <WirelessPanel sensors={sensors} />
             </div>
           )}
 

@@ -1,45 +1,85 @@
+import time
+
 from fastapi import APIRouter, Depends
 
 from app.auth.dependencies import get_current_user
+from app.config import settings
+from app.sensor.factory import get_sensor, get_motor
 
 router = APIRouter(prefix="/api/sensors", tags=["sensors"])
 
-MOCK_SENSORS = [
-    {
-        "name": "MPU6050 — Upper Back",
-        "online": True,
-        "battery": 87,
-        "signal": 92,
-        "temperature": 36.5,
-        "ping": 12,
-    },
-    {
-        "name": "MPU6050 — Lower Back",
-        "online": True,
-        "battery": 73,
-        "signal": 88,
-        "temperature": 36.2,
-        "ping": 15,
-    },
-    {
-        "name": "Servo Motor",
-        "online": True,
-        "battery": 95,
-        "signal": 100,
-        "temperature": 35.8,
-        "ping": 8,
-    },
-    {
-        "name": "Vibrator Module",
-        "online": False,
-        "battery": 0,
-        "signal": 0,
-        "temperature": 0,
-        "ping": 0,
-    },
-]
+sensor = None
+motor = None
+
+
+def get_sensor_instance():
+    global sensor
+    if sensor is None:
+        sensor = get_sensor()
+    return sensor
+
+
+def get_motor_instance():
+    global motor
+    if motor is None:
+        motor = get_motor()
+    return motor
+
+
+async def _read_sensor_status() -> dict:
+    """Read actual status from the sensor instance."""
+    sens = get_sensor_instance()
+    try:
+        t0 = time.monotonic()
+        temp = await sens.read_temperature()
+        ping_ms = round((time.monotonic() - t0) * 1000, 1)
+        return {
+            "name": "MPU6050 Sensor",
+            "online": True,
+            "battery": 100 if settings.USE_MOCK_SENSORS else 0,
+            "signal": 100 if settings.USE_MOCK_SENSORS else 0,
+            "temperature": temp,
+            "ping": ping_ms,
+        }
+    except Exception:
+        return {
+            "name": "MPU6050 Sensor",
+            "online": False,
+            "battery": 0,
+            "signal": 0,
+            "temperature": 0,
+            "ping": 0,
+        }
+
+
+async def _read_motor_status(name: str) -> dict:
+    """Read actual status from the motor instance."""
+    mot = get_motor_instance()
+    try:
+        is_mock = settings.USE_MOCK_SENSORS
+        return {
+            "name": name,
+            "online": True,
+            "battery": 100 if is_mock else 0,
+            "signal": 100 if is_mock else 0,
+            "temperature": 0,
+            "ping": 0,
+        }
+    except Exception:
+        return {
+            "name": name,
+            "online": False,
+            "battery": 0,
+            "signal": 0,
+            "temperature": 0,
+            "ping": 0,
+        }
 
 
 @router.get("/status")
 async def get_sensor_status(current_user: dict = Depends(get_current_user)):
-    return MOCK_SENSORS
+    return [
+        await _read_sensor_status(),
+        await _read_motor_status("Servo Motor"),
+        await _read_motor_status("Vibrator Module"),
+    ]

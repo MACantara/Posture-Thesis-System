@@ -1,4 +1,4 @@
-import { Battery, Wifi, Thermometer, Activity } from 'lucide-react';
+import { Battery, Bluetooth, Thermometer, Activity } from 'lucide-react';
 import type { SensorStatus } from '../../api/sensors';
 
 export default function SensorCards({ sensors }: { sensors: SensorStatus[] }) {
@@ -32,7 +32,7 @@ export default function SensorCards({ sensors }: { sensors: SensorStatus[] }) {
               <span className="text-xs text-slate-400 w-8 text-right">{sensor.battery}%</span>
             </div>
             <div className="flex items-center gap-2 text-sm">
-              <Wifi className="w-4 h-4 text-slate-400" />
+              <Bluetooth className="w-4 h-4 text-slate-400" />
               <span className="text-slate-300">Signal: {sensor.signal}%</span>
             </div>
             <div className="flex items-center gap-2 text-sm">

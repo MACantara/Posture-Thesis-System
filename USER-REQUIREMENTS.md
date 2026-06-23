@@ -30,7 +30,7 @@ An Intelligent Wearable Sensor-Based System for Posture Detection and Real-Time 
   - Color-coded badges and icons for quick status identification
 - Web app
 - Animated upper-body figure to visualize posture (green = good, red = poor, amber = warning)
-- Connectivity using Bluetooth/WiFi
+- Connectivity using Bluetooth (BLE 5.0)
   - Sensor cards showing battery, signal, temperature, ping, and online/offline status
   - Wireless metadata panel
 - Admin dashboard with user list, locations, and status overview
@@ -68,7 +68,7 @@ An Intelligent Wearable Sensor-Based System for Posture Detection and Real-Time 
   - Signal strength
   - Temperature
   - Ping/latency
-- Wireless metadata panel (Bluetooth/WiFi connection details)
+- Bluetooth metadata panel (BLE connection details, signal strength, battery)
 
 ### Posture Status Tab
 

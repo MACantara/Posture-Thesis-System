@@ -7,7 +7,7 @@
 - Raspberry Pi 3 B+ with Raspberry Pi OS
 - Python 3.9+ installed
 - Node.js 18+ installed
-- Network connection (WiFi or Ethernet)
+- Network connection (Bluetooth or Ethernet)
 
 ### Quick Deploy
 
