@@ -11,6 +11,7 @@ class Settings:
     # Database — DATABASE_PATH is sensitive (contains user data location)
     DB_BACKEND: str = os.getenv("DB_BACKEND", "sqlite")
     DATABASE_PATH: str = os.getenv("DATABASE_PATH", "posture.db")
+    DATABASE_URL: str = os.getenv("DATABASE_URL", "")
 
     # Sensors — non-sensitive defaults
     USE_MOCK_SENSORS: bool = os.getenv("USE_MOCK_SENSORS", "True").lower() == "true"

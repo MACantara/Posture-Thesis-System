@@ -7,7 +7,6 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.db.factory import get_repositories
-from app.db.sqlite.connection import init_db
 from app.routers import auth as auth_router
 from app.routers import posture as posture_router
 from app.routers import sessions as sessions_router
@@ -18,7 +17,14 @@ from app.routers import websocket as ws_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await init_db(settings.db_path)
+    # Initialize database based on backend
+    if settings.DB_BACKEND == "sqlite":
+        from app.db.sqlite.connection import init_db
+        await init_db(settings.db_path)
+    elif settings.DB_BACKEND == "postgresql":
+        from app.db.postgresql.connection import init_db
+        await init_db(settings.DATABASE_URL)
+    
     repos = get_repositories()
     app.state.repos = repos
     yield
