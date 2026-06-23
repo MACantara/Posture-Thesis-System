@@ -8,7 +8,7 @@
     "python-install": {
       "commands": [
         { "src": "backend/requirements.txt", "dest": "requirements.txt" },
-        "python -m venv --copies /app/.venv",
+        "python -m venv /app/.venv",
         { "path": "/app/.venv/bin" },
         "pip install -r requirements.txt"
       ]
@@ -32,6 +32,7 @@
   },
   "deploy": {
     "inputs": [
+      { "step": "packages:mise" },
       { "step": "python-install" },
       { "step": "frontend-build" },
       { "src": "backend/app", "dest": "app" },
