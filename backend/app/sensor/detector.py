@@ -21,7 +21,7 @@ KNOWN_I2C_DEVICES = {
     0x69: "MPU6050 (alt addr)",
     0x76: "BME280",
     0x77: "BME280 (alt addr)",
-    0x48: "ADS1115",
+    0x48: "ADS1115 (ADC for Flex Sensor)",
     0x1E: "HMC5883L",
 }
 
@@ -311,6 +311,25 @@ async def read_detected_sensor_status() -> list[dict]:
                 status["temperature"] = temp
                 status["ping"] = ping_ms
                 status["signal"] = 100
+            except Exception as e:
+                logger.warning("Failed to read %s: %s", dev["name"], e)
+                status["online"] = False
+
+        if dev["interface"] == "I2C" and "ADS1115" in dev["name"]:
+            try:
+                addr = int(dev["address"], 16) if dev["address"] else 0x48
+                from app.sensor.flex_sensor import FlexSensor
+                t0 = asyncio.get_event_loop().time()
+                flex = FlexSensor(bus_num=settings.I2C_BUS, address=addr)
+                raw_data = await flex.read_raw_data()
+                ping_ms = round((asyncio.get_event_loop().time() - t0) * 1000, 1)
+                status["name"] = "Flex Sensor 4.5\" (SEN-08606)"
+                status["temperature"] = 25.0
+                status["ping"] = ping_ms
+                status["signal"] = 100
+                status["bend_angle"] = raw_data["bend_angle"]
+                status["resistance"] = raw_data["resistance"]
+                status["voltage"] = raw_data["voltage"]
             except Exception as e:
                 logger.warning("Failed to read %s: %s", dev["name"], e)
                 status["online"] = False

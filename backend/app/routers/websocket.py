@@ -31,6 +31,7 @@ class ConnectionManager:
 manager = ConnectionManager()
 sensor = None
 motor = None
+flex_sensor = None
 
 
 def get_sensor_instance():
@@ -45,6 +46,17 @@ def get_motor_instance():
     if motor is None:
         motor = get_motor()
     return motor
+
+
+def get_flex_sensor_instance():
+    global flex_sensor
+    if flex_sensor is None:
+        try:
+            from app.sensor.flex_sensor import FlexSensor
+            flex_sensor = FlexSensor(bus_num=settings.I2C_BUS, address=0x48)
+        except Exception:
+            flex_sensor = None
+    return flex_sensor
 
 
 @router.websocket("/ws")
@@ -62,6 +74,7 @@ async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
     sens = get_sensor_instance()
     mot = get_motor_instance()
+    flex = get_flex_sensor_instance()
 
     sample_interval = 1.0 / settings.SENSOR_SAMPLE_RATE
 
@@ -75,6 +88,8 @@ async def websocket_endpoint(websocket: WebSocket):
                 if cmd_type == "recalibrate":
                     if hasattr(sens, "recalibrate"):
                         sens.recalibrate()
+                    if flex and hasattr(flex, "recalibrate"):
+                        flex.recalibrate()
                     await manager.send_json(websocket, {"type": "recalibrated"})
 
             except asyncio.TimeoutError:
@@ -85,6 +100,15 @@ async def websocket_endpoint(websocket: WebSocket):
             temp = await sens.read_temperature()
             angle = await sens.get_posture_angle()
             status = PostureDetector.classify(angle)
+
+            # Read flex sensor data if available
+            flex_data = None
+            if flex:
+                try:
+                    flex_raw = await flex.read_raw_data()
+                    flex_data = flex_raw
+                except Exception:
+                    flex_data = None
 
             if status == "poor":
                 intensity = PostureDetector.get_intensity(angle)
@@ -98,6 +122,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 "accel": {"x": accel[0], "y": accel[1], "z": accel[2]},
                 "gyro": {"x": gyro[0], "y": gyro[1], "z": gyro[2]},
                 "temperature": temp,
+                "flex": flex_data,
                 "timestamp": datetime.now().isoformat(),
             }
             await manager.send_json(websocket, data)

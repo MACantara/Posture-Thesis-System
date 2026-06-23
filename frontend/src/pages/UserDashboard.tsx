@@ -13,6 +13,7 @@ import Recommendations from '../components/dashboard/Recommendations';
 import SensorCards from '../components/dashboard/SensorCards';
 import WirelessPanel from '../components/dashboard/WirelessPanel';
 import NetworkPanel from '../components/dashboard/NetworkPanel';
+import FlexSensorPanel from '../components/dashboard/FlexSensorPanel';
 import PostureSilhouette from '../components/dashboard/PostureSilhouette';
 import JointAngleBars from '../components/dashboard/JointAngleBars';
 import SessionStats from '../components/dashboard/SessionStats';
@@ -139,12 +140,7 @@ export default function UserDashboard() {
                 <JointAngleBars angle={0} status="idle" />
                 <SessionStats duration={0} goodCount={0} warningCount={0} poorCount={0} />
               </div>
-              <div className="card">
-                <p className="text-slate-400 text-sm text-center py-8">
-                  Connect to a sensor session to see real-time posture data.
-                  This will be activated in Phase 6 with WebSocket integration.
-                </p>
-              </div>
+              <FlexSensorPanel />
             </div>
           )}
         </>

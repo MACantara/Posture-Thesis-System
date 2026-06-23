@@ -59,3 +59,18 @@ export async function getNetworkDevices(): Promise<NetworkScanResult> {
   const response = await client.get('/api/sensors/network');
   return response.data;
 }
+
+export interface FlexSensorData {
+  online: boolean;
+  name: string;
+  raw_adc: number;
+  voltage: number;
+  resistance: number;
+  bend_angle: number;
+  error?: string;
+}
+
+export async function getFlexSensorData(): Promise<FlexSensorData> {
+  const response = await client.get('/api/sensors/flex');
+  return response.data;
+}

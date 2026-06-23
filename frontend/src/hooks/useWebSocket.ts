@@ -1,10 +1,19 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 
+interface FlexData {
+  raw_adc: number;
+  voltage: number;
+  resistance: number;
+  bend_angle: number;
+}
+
 interface SensorData {
   angle: number;
   status: string;
   accel: { x: number; y: number; z: number };
   gyro: { x: number; y: number; z: number };
+  temperature: number;
+  flex: FlexData | null;
   timestamp: string;
 }
 
