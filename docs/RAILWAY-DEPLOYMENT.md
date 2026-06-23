@@ -112,14 +112,11 @@ Copy the generated key and set it as the `SECRET_KEY` environment variable in th
    - Build the React app with `npm run build`
    - Serve the `dist/` directory as a static site with SPA fallback
 
-## Step 7: Seed Database (Optional)
+## Step 7: Database Seeding (Automatic)
 
-After deployment, you may want to seed the database with demo users. You can do this by:
+The backend automatically creates database tables and seeds demo data on startup if the database is empty. No manual seeding is required — demo users and posture records will be created on the first deployment.
 
-1. Accessing the Railway service logs
-2. Running a one-time command via Railway CLI or by temporarily adding a startup script
-
-Alternatively, create users through the API endpoints after deployment.
+On subsequent restarts, the seed is skipped since users already exist.
 
 ## Step 8: Access Your Application
 
