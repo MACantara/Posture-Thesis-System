@@ -77,16 +77,9 @@ Navigate to the backend service → Variables tab and add:
 2. In the service settings, set **Root Directory** to `frontend`
 3. Railpack auto-detects Vite via `vite.config.ts`, builds with `npm run build`, and serves the `dist/` directory as a static site with SPA fallback via Caddy
 
-### Frontend Environment Variables
+The frontend automatically derives API and WebSocket URLs from the browser's current host, so no environment variables are needed for the frontend service.
 
-These variables are embedded at build time (VITE_ prefix required):
-
-| Variable | Value | Description |
-|----------|-------|-------------|
-| `VITE_API_URL` | *(backend URL)* | Backend service URL (e.g., `https://backend-service.railway.app`) |
-| `VITE_WS_URL` | *(backend WS URL)* | Backend WebSocket URL (e.g., `wss://backend-service.railway.app`) |
-
-Set these in the frontend service → Variables tab. Reference the backend service's public URL.
+> **Note:** The dynamic URL derivation assumes the backend is served on the same host. For Railway's separate-service architecture, you'll need to update `client.ts` and `useWebSocket.ts` to point to the backend service's domain, or serve the frontend from the backend as static files.
 
 ## Step 5: Generate SECRET_KEY
 
@@ -152,9 +145,9 @@ If you seeded the database, use these credentials:
 
 ### Frontend Can't Reach Backend
 
-- Verify `VITE_API_URL` is set to the backend's public URL (with `https://`)
-- Verify `VITE_WS_URL` is set to the backend's WebSocket URL (with `wss://`)
-- These are build-time variables — redeploy the frontend after changing them
+- The frontend dynamically derives the backend URL from `window.location.hostname` on port 8000
+- For Railway's separate-service architecture, update `frontend/src/api/client.ts` and `frontend/src/hooks/useWebSocket.ts` to point to the backend service's domain
+- Alternatively, serve the frontend as static files from the backend (set `FRONTEND_DIST_PATH` and deploy as a single service)
 
 ### CORS Errors
 
@@ -180,4 +173,3 @@ The application automatically detects the environment based on the `DB_BACKEND` 
 2. Add your custom domain
 3. Update DNS records as instructed by Railway
 4. Update `CORS_ORIGINS` on the backend to include the frontend's custom domain
-5. Update `VITE_API_URL` and `VITE_WS_URL` on the frontend to use the backend's custom domain
