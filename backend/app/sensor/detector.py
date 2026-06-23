@@ -1,12 +1,15 @@
 """Hardware detection for Raspberry Pi 3 B+.
 
 Scans I2C bus for connected sensors, checks GPIO availability for motors,
-and scans BLE for connected Bluetooth devices.
+scans BLE for connected Bluetooth devices, and discovers devices on the
+local network.
 """
 
 import asyncio
 import logging
+import socket
 import subprocess
+import ipaddress
 
 from app.config import settings
 
@@ -115,19 +118,140 @@ def _scan_ble_devices() -> list[dict]:
     return devices
 
 
+def _get_local_network_info() -> dict:
+    """Get the local machine's network interface info."""
+    info = {"hostname": None, "ip_addresses": [], "network": None}
+    try:
+        info["hostname"] = socket.gethostname()
+        hostname = socket.gethostname()
+        try:
+            local_ip = socket.gethostbyname(hostname)
+            info["ip_addresses"].append(local_ip)
+        except Exception:
+            pass
+
+        # Get all interfaces via hostname resolution
+        try:
+            all_addrs = socket.getaddrinfo(hostname, None)
+            for addr in all_addrs:
+                ip = addr[4][0]
+                if ip not in info["ip_addresses"] and not ip.startswith("127."):
+                    info["ip_addresses"].append(ip)
+        except Exception:
+            pass
+
+        # Determine the local subnet from the first non-loopback IP
+        for ip in info["ip_addresses"]:
+            if ":" not in ip and not ip.startswith("127."):
+                iface = ipaddress.ip_interface(f"{ip}/24")
+                info["network"] = str(iface.network)
+                break
+    except Exception as e:
+        logger.warning("Failed to get local network info: %s", e)
+    return info
+
+
+def _ping_host(ip: str, timeout: float = 1.0) -> bool:
+    """Ping a single host and return True if reachable."""
+    try:
+        result = subprocess.run(
+            ["ping", "-n", "1", "-w", str(int(timeout * 1000)), ip],
+            capture_output=True, text=True, timeout=timeout + 1,
+        )
+        return result.returncode == 0
+    except Exception:
+        return False
+
+
+def _check_port(ip: str, port: int, timeout: float = 1.0) -> bool:
+    """Check if a TCP port is open on a host."""
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.settimeout(timeout)
+            return s.connect_ex((ip, port)) == 0
+    except Exception:
+        return False
+
+
+async def _scan_network_devices() -> list[dict]:
+    """Scan the local network for reachable devices.
+
+    Pings all hosts in the /24 subnet and checks for common ports
+    (22 SSH, 8000 FastAPI) to identify Raspberry Pi devices.
+    """
+    net_info = _get_local_network_info()
+    network_str = net_info.get("network")
+
+    if not network_str:
+        logger.warning("Could not determine local network — skipping network scan")
+        return []
+
+    try:
+        network = ipaddress.ip_network(network_str, strict=False)
+    except Exception as e:
+        logger.warning("Invalid network %s: %s", network_str, e)
+        return []
+
+    # Collect all hosts to scan (exclude network, broadcast, and our own IPs)
+    own_ips = set(net_info["ip_addresses"])
+    hosts = [str(ip) for ip in network.hosts() if str(ip) not in own_ips]
+
+    logger.info("Scanning network %s (%d hosts)...", network_str, len(hosts))
+
+    # Ping scan all hosts concurrently
+    async def check_host(ip: str) -> dict | None:
+        reachable = await asyncio.to_thread(_ping_host, ip, 0.5)
+        if not reachable:
+            return None
+
+        device = {
+            "ip": ip,
+            "hostname": None,
+            "online": True,
+            "ports": {},
+            "is_raspberry_pi": False,
+        }
+
+        # Try reverse DNS
+        try:
+            hostname = await asyncio.to_thread(socket.gethostbyaddr, ip)
+            device["hostname"] = hostname[0]
+        except Exception:
+            pass
+
+        # Check common ports
+        for port, label in [(22, "ssh"), (8000, "api"), (80, "http"), (5173, "vite")]:
+            open_port = await asyncio.to_thread(_check_port, ip, port, 0.5)
+            if open_port:
+                device["ports"][label] = port
+                if port in (22, 8000):
+                    device["is_raspberry_pi"] = True
+
+        return device
+
+    tasks = [check_host(ip) for ip in hosts]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    devices = [r for r in results if r is not None and not isinstance(r, Exception)]
+    logger.info("Network scan complete: %d devices found", len(devices))
+    return devices
+
+
 async def detect_all_hardware() -> dict:
     """Detect all connected hardware on the Raspberry Pi.
 
-    Returns a dict with 'i2c', 'gpio', and 'ble' lists.
+    Returns a dict with 'i2c', 'gpio', 'ble', and 'network' lists.
     """
     i2c = await asyncio.to_thread(_scan_i2c_bus, settings.I2C_BUS)
     gpio = await asyncio.to_thread(_check_gpio_pins)
     ble = await asyncio.to_thread(_scan_ble_devices)
+    network = await _scan_network_devices()
 
     return {
         "i2c": i2c,
         "gpio": gpio,
         "ble": ble,
+        "network": network,
     }
 
 

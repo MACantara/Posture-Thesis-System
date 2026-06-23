@@ -37,3 +37,25 @@ export async function getHardwareDetection(): Promise<HardwareDetection> {
   const response = await client.get('/api/sensors/detect');
   return response.data;
 }
+
+export interface NetworkDevice {
+  ip: string;
+  hostname: string | null;
+  online: boolean;
+  ports: Record<string, number>;
+  is_raspberry_pi: boolean;
+}
+
+export interface NetworkScanResult {
+  local: {
+    hostname: string | null;
+    ip_addresses: string[];
+    network: string | null;
+  };
+  devices: NetworkDevice[];
+}
+
+export async function getNetworkDevices(): Promise<NetworkScanResult> {
+  const response = await client.get('/api/sensors/network');
+  return response.data;
+}

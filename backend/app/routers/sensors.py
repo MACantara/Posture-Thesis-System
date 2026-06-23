@@ -10,6 +10,8 @@ from app.sensor.detector import (
     detect_all_hardware,
     read_detected_sensor_status,
     read_detected_motor_status,
+    _scan_network_devices,
+    _get_local_network_info,
 )
 
 router = APIRouter(prefix="/api/sensors", tags=["sensors"])
@@ -143,3 +145,14 @@ async def detect_hardware(current_user: dict = Depends(get_current_user)):
 @router.get("/bluetooth")
 async def get_bluetooth_status(current_user: dict = Depends(get_current_user)):
     return await _read_bluetooth_adapter()
+
+
+@router.get("/network")
+async def get_network_devices(current_user: dict = Depends(get_current_user)):
+    """Discover devices on the local network."""
+    devices = await _scan_network_devices()
+    local_info = _get_local_network_info()
+    return {
+        "local": local_info,
+        "devices": devices,
+    }

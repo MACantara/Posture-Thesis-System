@@ -12,6 +12,7 @@ import PostureRecordsTable from '../components/dashboard/PostureRecordsTable';
 import Recommendations from '../components/dashboard/Recommendations';
 import SensorCards from '../components/dashboard/SensorCards';
 import WirelessPanel from '../components/dashboard/WirelessPanel';
+import NetworkPanel from '../components/dashboard/NetworkPanel';
 import PostureSilhouette from '../components/dashboard/PostureSilhouette';
 import JointAngleBars from '../components/dashboard/JointAngleBars';
 import SessionStats from '../components/dashboard/SessionStats';
@@ -127,6 +128,7 @@ export default function UserDashboard() {
             <div className="space-y-6">
               <SensorCards sensors={sensors} />
               <WirelessPanel sensors={sensors} />
+              <NetworkPanel />
             </div>
           )}
 
