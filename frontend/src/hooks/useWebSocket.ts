@@ -16,7 +16,11 @@ export function useWebSocket(token: string | null) {
 
   const connect = useCallback(() => {
     if (!token) return;
-    const wsUrl = `${import.meta.env.VITE_WS_URL || 'ws://localhost:8000'}/ws?token=${token}`;
+    const wsBase = import.meta.env.VITE_WS_URL ||
+      (typeof window !== 'undefined'
+        ? `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.hostname}:8000`
+        : 'ws://localhost:8000');
+    const wsUrl = `${wsBase}/ws?token=${token}`;
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
