@@ -29,10 +29,11 @@ class MPU6050Sensor(SensorInterface):
     ACCEL_SCALE = 16384.0
     GYRO_SCALE = 131.0
 
-    def __init__(self, bus_num: int = 1, calibration_offsets: dict | None = None):
+    def __init__(self, bus_num: int = 1, address: int = 0x68, calibration_offsets: dict | None = None):
         if not HAS_SMBUS:
             raise RuntimeError("smbus2 not available — cannot initialize MPU6050")
 
+        self.I2C_ADDR = address
         self.bus = smbus2.SMBus(bus_num)
         self.bus.write_byte_data(self.I2C_ADDR, self.PWR_MGMT_1, 0)
 

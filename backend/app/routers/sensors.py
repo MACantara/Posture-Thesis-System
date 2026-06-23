@@ -6,6 +6,11 @@ from fastapi import APIRouter, Depends
 
 from app.auth.dependencies import get_current_user
 from app.sensor.factory import get_sensor, get_motor
+from app.sensor.detector import (
+    detect_all_hardware,
+    read_detected_sensor_status,
+    read_detected_motor_status,
+)
 
 router = APIRouter(prefix="/api/sensors", tags=["sensors"])
 
@@ -90,62 +95,49 @@ async def _read_bluetooth_adapter() -> dict:
     return await asyncio.to_thread(_check_hci0)
 
 
-async def _read_sensor_status() -> dict:
-    """Read actual status from the sensor instance."""
-    sens = get_sensor_instance()
-    try:
-        t0 = time.monotonic()
-        temp = await sens.read_temperature()
-        ping_ms = round((time.monotonic() - t0) * 1000, 1)
-        return {
-            "name": "MPU6050 Sensor",
-            "online": True,
-            "battery": 0,
-            "signal": 0,
-            "temperature": temp,
-            "ping": ping_ms,
-        }
-    except Exception:
-        return {
-            "name": "MPU6050 Sensor",
-            "online": False,
-            "battery": 0,
-            "signal": 0,
-            "temperature": 0,
-            "ping": 0,
-        }
-
-
-async def _read_motor_status(name: str) -> dict:
-    """Read actual status from the motor instance."""
-    mot = get_motor_instance()
-    try:
-        return {
-            "name": name,
-            "online": True,
-            "battery": 0,
-            "signal": 0,
-            "temperature": 0,
-            "ping": 0,
-        }
-    except Exception:
-        return {
-            "name": name,
-            "online": False,
-            "battery": 0,
-            "signal": 0,
-            "temperature": 0,
-            "ping": 0,
-        }
-
-
 @router.get("/status")
 async def get_sensor_status(current_user: dict = Depends(get_current_user)):
-    return [
-        await _read_sensor_status(),
-        await _read_motor_status("Servo Motor"),
-        await _read_motor_status("Vibrator Module"),
-    ]
+    """Return status of all detected sensors and motors on the Pi."""
+    sensor_statuses = await read_detected_sensor_status()
+    motor_statuses = await read_detected_motor_status()
+
+    results = []
+    for s in sensor_statuses:
+        results.append({
+            "name": s["name"],
+            "online": s["online"],
+            "battery": s["battery"],
+            "signal": s["signal"],
+            "temperature": s["temperature"],
+            "ping": s["ping"],
+        })
+    for m in motor_statuses:
+        results.append({
+            "name": m["name"],
+            "online": m["online"],
+            "battery": m["battery"],
+            "signal": m["signal"],
+            "temperature": m["temperature"],
+            "ping": m["ping"],
+        })
+
+    if not results:
+        results.append({
+            "name": "No sensors detected",
+            "online": False,
+            "battery": 0,
+            "signal": 0,
+            "temperature": 0,
+            "ping": 0,
+        })
+
+    return results
+
+
+@router.get("/detect")
+async def detect_hardware(current_user: dict = Depends(get_current_user)):
+    """Detect all connected hardware on the Raspberry Pi (I2C, GPIO, BLE)."""
+    return await detect_all_hardware()
 
 
 @router.get("/bluetooth")
