@@ -1,24 +1,28 @@
 {
   "$schema": "https://schema.railpack.com",
+  "packages": {
+    "python": "3.13",
+    "node": "22"
+  },
   "steps": {
     "python-install": {
       "commands": [
         { "src": "backend/requirements.txt", "dest": "requirements.txt" },
-        { "cmd": "pip install -r requirements.txt" }
+        "pip install -r requirements.txt"
       ]
     },
     "frontend-install": {
       "commands": [
         { "src": "frontend/package.json", "dest": "frontend/package.json" },
         { "src": "frontend/package-lock.json", "dest": "frontend/package-lock.json" },
-        { "cmd": "cd frontend && npm install" }
+        "cd frontend && npm install"
       ]
     },
     "frontend-build": {
       "inputs": [{ "step": "frontend-install" }],
       "commands": [
         { "src": "frontend", "dest": "frontend" },
-        { "cmd": "cd frontend && npm run build" }
+        "cd frontend && npm run build"
       ]
     }
   },
@@ -27,8 +31,7 @@
       { "step": "python-install" },
       { "step": "frontend-build" },
       { "src": "backend/app", "dest": "app" },
-      { "src": "backend/run.py", "dest": "run.py" },
-      { "src": "frontend/dist", "dest": "frontend/dist" }
+      { "src": "backend/run.py", "dest": "run.py" }
     ],
     "startCommand": "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}",
     "variables": {
