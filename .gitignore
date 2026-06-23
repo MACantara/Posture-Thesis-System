@@ -28,9 +28,6 @@ coverage.xml
 # Node.js
 node_modules/
 
-# Frontend build
-frontend/dist/
-
 # IDE
 .vscode/
 .idea/
