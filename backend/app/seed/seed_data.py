@@ -1,11 +1,11 @@
 import asyncio
+import logging
 import random
 from datetime import datetime, timedelta
 
-from app.config import settings
-from app.db.sqlite.connection import init_db
-from app.db.factory import get_repositories
 from app.auth.password import hash_password
+
+logger = logging.getLogger("app.seed")
 
 DEMO_USERS = [
     {"username": "user", "password": "pass123", "role": "user", "location": "Manila"},
@@ -32,16 +32,22 @@ def random_angle(status: str) -> float:
         return round(random.uniform(20, 45), 2)
 
 
-async def seed():
-    print("Initializing database...")
-    await init_db(settings.db_path)
-    repos = get_repositories()
+async def seed_if_empty(repos) -> None:
+    """Seed demo data only if the database has no users."""
+    existing_users = await repos.users.list_all()
+    if existing_users:
+        logger.info("Database already has %d users, skipping seed.", len(existing_users))
+        return
+    await seed(repos)
 
-    print("Creating demo users...")
+
+async def seed(repos) -> None:
+    """Create demo users with posture records and sessions."""
+    logger.info("Creating demo users...")
     for u in DEMO_USERS:
         existing = await repos.users.get_by_username(u["username"])
         if existing:
-            print(f"  User '{u['username']}' already exists, skipping.")
+            logger.info("  User '%s' already exists, skipping.", u["username"])
             continue
         await repos.users.create(
             username=u["username"],
@@ -49,9 +55,9 @@ async def seed():
             role=u["role"],
             location=u["location"],
         )
-        print(f"  Created user '{u['username']}' ({u['role']}) — {u['location']}")
+        logger.info("  Created user '%s' (%s) — %s", u["username"], u["role"], u["location"])
 
-    print("Generating posture records and sessions...")
+    logger.info("Generating posture records and sessions...")
     all_users = await repos.users.list_all()
     for user in all_users:
         if user.role == "admin":
@@ -100,10 +106,23 @@ async def seed():
                 avg_angle=avg_angle,
             )
 
-        print(f"  Generated {days * records_per_day} records for '{user.username}'")
+        logger.info("  Generated %d records for '%s'", days * records_per_day, user.username)
 
-    print("Seed complete!")
+    logger.info("Seed complete!")
 
 
 if __name__ == "__main__":
-    asyncio.run(seed())
+    from app.config import settings
+    from app.db.factory import get_repositories
+
+    async def _run():
+        if settings.DB_BACKEND == "sqlite":
+            from app.db.sqlite.connection import init_db
+            await init_db(settings.db_path)
+        elif settings.DB_BACKEND == "postgresql":
+            from app.db.postgresql.connection import init_db
+            await init_db(settings.DATABASE_URL)
+        repos = get_repositories()
+        await seed(repos)
+
+    asyncio.run(_run())

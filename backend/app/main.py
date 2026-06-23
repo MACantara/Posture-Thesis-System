@@ -27,6 +27,10 @@ async def lifespan(app: FastAPI):
     
     repos = get_repositories()
     app.state.repos = repos
+
+    from app.seed.seed_data import seed_if_empty
+    await seed_if_empty(repos)
+
     yield
 
 
