@@ -8,6 +8,8 @@
     "python-install": {
       "commands": [
         { "src": "backend/requirements.txt", "dest": "requirements.txt" },
+        "python -m venv /app/.venv",
+        { "path": "/app/.venv/bin" },
         "pip install -r requirements.txt"
       ]
     },
@@ -35,6 +37,7 @@
       { "src": "backend/app", "dest": "app" },
       { "src": "backend/run.py", "dest": "run.py" }
     ],
+    "paths": ["/app/.venv/bin"],
     "startCommand": "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}",
     "variables": {
       "FRONTEND_DIST_PATH": "frontend/dist"
